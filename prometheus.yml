@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'spark'
+    static_configs:
+      - targets: ['spark-master:4040']   # Port UI Spark pour métriques (ou JMX exporter)
+      
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']         # Kafka JMX métriques
