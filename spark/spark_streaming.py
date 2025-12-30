@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import split, col, current_timestamp
 import sys
+import os
 
 print("=" * 50)
 print("  Initialisation de Spark Streaming")
@@ -13,7 +14,6 @@ try:
         .master("spark://spark-master:7077") \
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1") \
         .config("spark.streaming.stopGracefullyOnShutdown", "true") \
-        .config("spark.sql.streaming.checkpointLocation", "/tmp/checkpoint") \
         .getOrCreate()
 
     # Définir le niveau de log
@@ -59,19 +59,22 @@ try:
 
     print("✅ Streaming console actif")
 
-    # Écrire dans HDFS (parquet)
-    print("\n💾 Démarrage de l'écriture HDFS...")
-    hdfs_query = logs_df.writeStream \
+    # Écrire localement (parquet)
+    local_path = os.path.join(os.getcwd(), "logs_parquet")
+    checkpoint_path = os.path.join(os.getcwd(), "checkpoint_local")
+
+    print(f"\n💾 Démarrage de l'écriture locale dans: {local_path}")
+    local_query = logs_df.writeStream \
         .format("parquet") \
-        .option("path", "hdfs://hadoop:9000/logs/") \
-        .option("checkpointLocation", "/tmp/checkpoint/hdfs") \
+        .option("path", local_path) \
+        .option("checkpointLocation", checkpoint_path) \
         .partitionBy("level") \
         .outputMode("append") \
         .trigger(processingTime='30 seconds') \
         .start()
 
-    print("✅ Streaming HDFS actif")
-    print("   Path: hdfs://hadoop:9000/logs/")
+    print("✅ Streaming local actif")
+    print(f"   Path: {local_path}")
     print("   Partitionné par: level")
 
     print("\n" + "=" * 50)
@@ -79,7 +82,7 @@ try:
     print("=" * 50)
     print("\n📊 En attente des données de Kafka...")
     print("🔄 Traitement toutes les 10 secondes (console)")
-    print("💾 Sauvegarde toutes les 30 secondes (HDFS)")
+    print("💾 Sauvegarde toutes les 30 secondes (local)")
     print("\n🛑 Appuyez sur Ctrl+C pour arrêter proprement")
     print("=" * 50 + "\n")
 
@@ -116,7 +119,6 @@ except Exception as e:
     print("\n💡 Vérifiez que:")
     print("   - Kafka est accessible sur kafka:9092")
     print("   - Spark Master est accessible sur spark://spark-master:7077")
-    print("   - HDFS est accessible sur hdfs://hadoop:9000")
     print("   - Le topic 'app-logs' existe dans Kafka")
     
     sys.exit(1)

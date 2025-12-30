@@ -1,6 +1,4 @@
-version: "3.9"
 services:
-  # Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
@@ -10,7 +8,6 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
-  # Kafka
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
@@ -21,36 +18,33 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     volumes:
       - kafka-data:/var/lib/kafka/data
 
-  # Spark Master
   spark-master:
     image: apache/spark:3.5.3
     container_name: spark-master
-    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
-    environment:
-      - SPARK_MASTER_HOST=spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master"]
     ports:
       - "8080:8080"
       - "7077:7077"
     depends_on:
       - kafka
-    restart: unless-stopped
+    volumes:
+      - spark-ivy:/home/spark/.ivy2   # <-- volume pour cache Ivy
 
-  # Spark Worker
   spark-worker:
     image: apache/spark:3.5.3
     container_name: spark-worker
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
     depends_on:
       - spark-master
-    restart: unless-stopped
+    volumes:
+      - spark-ivy:/home/spark/.ivy2   # <-- volume pour cache Ivy
 
-  # Hadoop NameNode
   hadoop:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: hadoop
@@ -60,6 +54,8 @@ services:
       - "9870:9870"
     volumes:
       - hadoop_data:/hadoop/dfs
+
 volumes:
   kafka-data:
   hadoop_data:
+  spark-ivy:   # <-- volume pour cache Ivy
